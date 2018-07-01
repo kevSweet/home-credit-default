@@ -4,21 +4,73 @@ author: "Kevin Sweet"
 date: "June 7, 2018"
 output: html_document
 ---
-The goal of this project is to develop a predictive model that predicts the probability of 
+The goal of this project is to develop a predictive model that predicts the probability of default on home mortgages.
+
+First there are a few required packages:
 ```{r}
 library(dplyr)
 ```
+Step One: Data Processing 
+
+First, I took a look at some of the data and identify which columns contain data that is irrelevant. To start this project, I am only going to consider app_target data and credit bureau data. (application_train.csv and bureau.csv)
+
+Lets take a look at how these two .csv files relate.
 
 ```{r}
 setwd("../data")
-sample_submission <- read.csv("../data/sample_submission.csv")
-app_test <- read.csv("../data/application_test.csv")
 app_target <- read.csv("../data/application_train.csv")
-app_target <- merge(app_target, read.csv("../data/bureau.csv"), by = "SK_ID_CURR")
-app_target_onlynumeric <- select_if(app_target, is.numeric)
+bureau <- read.csv("../data/bureau.csv")
+print(tbl_df(bureau))
+```
+In order to merge bureau into app_target, I must summarise some of the features in bureau and then group by SK_ID_CURR (customer ID). 
+
+```{r}
+
+#stopped here. Need to normalize columns before merge into app_target
+bureau <- bureau %>%
+  group_by(SK_ID_CURR) %>%
+  summarise(sum(CREDIT_DAY_OVERDUE), mean(AMOUNT_CREDIT_SUM),  )
+
+app_target <- merge(app_target, tmp, by = "SK_ID_CURR")
+
+# remove unneeded data
+rm(bureau)
+
+print(tbl_df(app_target))
+```
+Right off the bat, I can see that some of these columns are not going to be useful in prediction. I am going to remove the following columns for the following reasons:
+
+NAME_INCOME_TYPE - would add many dimensions to convert multiple strings to multiple indicator variables.
+NAME_HOUSING_TYPE - would add many dimensions to convert multiple strings to multiple indicator variables. 
+FLAG_MOBIL - ALL 1s
+OCCUPATION_TYPE - would add many dimensions to convert multiple strings to multiple indicator variables.
+ORGANIZATION_TYPE- would add many dimensions to convert multiple strings to multiple indicator variables.
+HOUSETYPE_MODE- would add many dimensions to convert multiple strings to multiple indicator variables. Also many missing datapoints
+WALLSMATERIAL_MODE - would add many dimensions to convert multiple strings to multiple indicator variables. Also many missing datapoints
+FLAG_DOCUMENT_2 - ALL 0s
+
+
+
+
+
+
+Step Two: Feature Selection
+
+There are many features to this data set, so the first thing I want to know is: 
+Which features are heavily correlated to each other? First, I will be analyzing which continuous variables are the most correlated using Pearson correlation.
+```{r}
+app_target_onlycont <- select_if(app_target, is.numeric)
 CORLATE <- cor(as.matrix(app_target_onlynumeric[,2]), as.matrix(app_target_onlynumeric[,-2]))
+CORLATE[,order(CORLATE[1,])]
 
 ```
+
+Step Three: Predictive Model Comparison
+
+
+
+Step Four: Tweak?
+
 
 ## R Markdown
 

@@ -1,2 +1,6 @@
 
 *.csv
+.RData
+data/.Rhistory
+.Rhistory
+.gitattributes
