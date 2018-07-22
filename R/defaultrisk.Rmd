@@ -19,42 +19,71 @@ Lets take a look at how these two .csv files relate.
 ```{r}
 setwd("../data")
 app_target <- read.csv("../data/application_train.csv")
+app_test <- read.csv("../data/application_test.csv")
 bureau <- read.csv("../data/bureau.csv")
 print(tbl_df(bureau))
 ```
-In order to merge bureau into app_target, I must summarise some of the features in bureau and then group by SK_ID_CURR (customer ID). 
+In order to merge bureau into app_target, I must summarise some of the features in bureau and then group by SK_ID_CURR (customer ID). Chosen summaries are based off of domain knowledge of credit assessment industry. (age of credit history, number of active accts, total debt, total credit available, total missed payments....)
 
 ```{r}
-
-#stopped here. Need to normalize columns before merge into app_target
 bureau <- bureau %>%
   group_by(SK_ID_CURR) %>%
-  summarise(sum(CREDIT_DAY_OVERDUE), mean(AMOUNT_CREDIT_SUM),  )
+  summarise(sum(CREDIT_DAY_OVERDUE != 0), sum(AMT_CREDIT_SUM), sum(AMT_CREDIT_SUM_DEBT), min(DAYS_CREDIT), 
+            sum(AMT_CREDIT_SUM_OVERDUE), sum(CREDIT_ACTIVE == "Active"))
 
-app_target <- merge(app_target, tmp, by = "SK_ID_CURR")
+#scales data for input into predictive model(s)
+bureau[, -c(1)] <- scale(bureau[, -c(1)])
+```
 
+Now we need to do some data formatting for app_target and app_test to convert strings to indicator variables before we merge bureau into each data frame
+
+```{r}
+#Name Contract Type:
+  #1 is cash loans
+  #0 is revolving loans
+app_target$NAME_CONTRACT_TYPE <- ifelse(app_target$NAME_CONTRACT_TYPE == "Cash loans", 1,0)
+app_test$NAME_CONTRACT_TYPE <- ifelse(app_test$NAME_CONTRACT_TYPE == "Cash loans", 1,0)
+
+#Code Gender:
+  #Male or not
+  #Female or not
+  #XNA or not
+app_target$MorNot <- ifelse(app_target$CODE_GENDER == "M", 1,0)
+app_target$ForNot <- ifelse(app_target$CODE_GENDER == "F", 1,0)
+app_target$XNAorNot <- ifelse(app_target$CODE_GENDER == "XNA", 1,0)
+app_target$CODE_GENDER <- NULL
+
+app_test$MorNot <- ifelse(app_test$CODE_GENDER == "M", 1,0)
+app_test$ForNot <- ifelse(app_test$CODE_GENDER == "F", 1,0)
+app_test$XNAorNot <- ifelse(app_test$CODE_GENDER == "XNA", 1,0)
+app_test$CODE_GENDER <- NULL
+
+```
+
+Now to merge and look at some of the columns
+
+```{r}
+app_target <- merge(app_target, bureau, by = "SK_ID_CURR")
+app_test <- merge(app_test, bureau, by = "SK_ID_CURR") 
 # remove unneeded data
 rm(bureau)
 
 print(tbl_df(app_target))
 ```
-Right off the bat, I can see that some of these columns are not going to be useful in prediction. I am going to remove the following columns for the following reasons:
-
-NAME_INCOME_TYPE - would add many dimensions to convert multiple strings to multiple indicator variables.
-NAME_HOUSING_TYPE - would add many dimensions to convert multiple strings to multiple indicator variables. 
-FLAG_MOBIL - ALL 1s
-OCCUPATION_TYPE - would add many dimensions to convert multiple strings to multiple indicator variables.
-ORGANIZATION_TYPE- would add many dimensions to convert multiple strings to multiple indicator variables.
-HOUSETYPE_MODE- would add many dimensions to convert multiple strings to multiple indicator variables. Also many missing datapoints
-WALLSMATERIAL_MODE - would add many dimensions to convert multiple strings to multiple indicator variables. Also many missing datapoints
-FLAG_DOCUMENT_2 - ALL 0s
-
-
-
-
-
 
 Step Two: Feature Selection
+
+Right off the bat, I can see that some of these columns are not going to be useful in prediction. I am going to remove the following columns for the following reasons:
+
+NAME_INCOME_TYPE - would add many dimensions to convert strings to multiple indicator variables.
+NAME_HOUSING_TYPE - would add many dimensions to convert strings to multiple indicator variables. 
+FLAG_MOBIL - ALL 1s
+OCCUPATION_TYPE - would add many dimensions to convert strings to multiple indicator variables.
+ORGANIZATION_TYPE- would add many dimensions to convert strings to multiple indicator variables.
+HOUSETYPE_MODE- would add many dimensions to convert strings to multiple indicator variables. Also many missing datapoints
+WALLSMATERIAL_MODE - would add many dimensions to convert strings to multiple indicator variables. Also many missing datapoints
+FLAG_DOCUMENT_2 - ALL 0s
+
 
 There are many features to this data set, so the first thing I want to know is: 
 Which features are heavily correlated to each other? First, I will be analyzing which continuous variables are the most correlated using Pearson correlation.
